@@ -4,6 +4,9 @@ Multi-threading and streams are two powerful concepts that can greatly improve t
 ## Multi-threading
 Multi-threading refers to the ability of an application to execute multiple threads or processes concurrently. This can be useful when one thread is blocked by an I/O operation or a long-running process, and another thread can continue to execute other tasks while waiting for the blocked thread to complete. In Node.js, multi-threading can be achieved using the Worker API, which allows you to create and manage worker threads that can execute JavaScript code independently.
 
+![Screenshot_7](https://user-images.githubusercontent.com/28495699/221335351-106db812-0183-4a9b-a4ac-6a656d5a5c16.png)
+![Screenshot_8](https://user-images.githubusercontent.com/28495699/221335346-c59efdb7-7760-4df8-8588-839370bc301e.png)
+
 ## Streams
 Streams are a way to process data in chunks as it is being read or written, instead of reading or writing the entire data set at once. This can be useful when dealing with large amounts of data, as it allows you to process data as it is being streamed, rather than waiting for the entire data set to be loaded into memory. In Node.js, there are several built-in stream modules that provide different types of streams, such as Readable, Writable, Duplex, and Transform streams.
 
