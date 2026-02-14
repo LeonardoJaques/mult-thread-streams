@@ -8,8 +8,8 @@ export default class Controller {
     this.#service = service;
   }
 
-  static init(dps) {
-    const controller = new Controller(dps);
+  static init(dependencies) {
+    const controller = new Controller(dependencies);
     controller.init();
     return controller;
   }
@@ -30,6 +30,10 @@ export default class Controller {
       bytes /= 1024;
     }
     return `${bytes.toFixed(2)} ${units[i]}`;
+  }
+
+  #elapsedSince(startTime) {
+    return `${((performance.now() - startTime) / 1000).toFixed(2)} secs`;
   }
 
   #configureOnFileChange(file) {
@@ -58,8 +62,6 @@ export default class Controller {
 
     console.log("executing on main thread");
     const startedAt = performance.now();
-    const elapsed = () =>
-      `${((performance.now() - startedAt) / 1000).toFixed(2)} secs`;
 
     this.#service.processFile({
       query,
@@ -67,7 +69,7 @@ export default class Controller {
       onProgress: (total) => {
         this.#view.updateProgress(total);
       },
-      onOcurrenceUpdate: ({ found, linesLength, took }) => {
+      onMatchFound: ({ found, linesLength, took }) => {
         const [[key, value]] = Object.entries(found);
         this.#view.updateDebugLog(
           `Found ${value} occurrences of ${key} | Over - ${linesLength} lines | Took ${took}`
@@ -75,8 +77,8 @@ export default class Controller {
       },
       onDone: ({ linesLength }) => {
         this.#view.updateDebugLog(
-          `\n✅ Processing complete! ${linesLength} lines in ${elapsed()}`,
-          false
+          `\n✅ Processing complete! ${linesLength} lines in ${this.#elapsedSince(startedAt)}`,
+          { append: true }
         );
         this.#view.setProcessing(false);
       },
@@ -84,18 +86,15 @@ export default class Controller {
   }
 
   async #processWithWorkers(query, file, threadCount) {
-    // Terminate any previous workers
     this.#terminateWorkers();
 
     const startedAt = performance.now();
-    const elapsed = () =>
-      `${((performance.now() - startedAt) / 1000).toFixed(2)} secs`;
 
     // Read full file and split into lines
     const text = await file.text();
     const allLines = text.split("\n");
     const header = allLines.shift();
-    const dataLines = allLines.filter((l) => l.length > 0);
+    const dataLines = allLines.filter((line) => line.length > 0);
     const totalDataLines = dataLines.length;
 
     // Adjust thread count if more threads than lines
@@ -140,34 +139,37 @@ export default class Controller {
             this.#view.updateProgress(avgProgress);
             break;
 
-          case "onOcurrenceUpdate": {
+          case "onMatchFound": {
             const [[key, value]] = Object.entries(data.found);
             workerFoundCounts[workerIndex] = value;
             if (!queryLabel) queryLabel = key;
             break;
           }
 
-          case "done":
+          case "done": {
             completedWorkers++;
+            const workerId = workerIndex + 1;
+            const found = workerFoundCounts[workerIndex];
             this.#view.updateDebugLog(
-              `  Worker ${workerIndex + 1}: Found ${workerFoundCounts[workerIndex]} of ${queryLabel} in ${workerLineCount} lines | ${data.took}\n`,
-              false
+              `  Worker ${workerId}: Found ${found} of ${queryLabel} in ${workerLineCount} lines | ${data.took}\n`,
+              { append: true }
             );
             console.log(
-              `Worker ${workerIndex + 1} done (${completedWorkers}/${actualThreads})`
+              `Worker ${workerId} done (${completedWorkers}/${actualThreads})`
             );
 
             if (completedWorkers === actualThreads) {
               const totalFound = workerFoundCounts.reduce((a, b) => a + b, 0);
               this.#view.updateProgress(100);
               this.#view.updateDebugLog(
-                `\n✅ All ${actualThreads} workers complete! Found ${totalFound} total | ${totalDataLines} lines in ${elapsed()}`,
-                false
+                `\n✅ All ${actualThreads} workers complete! Found ${totalFound} total | ${totalDataLines} lines in ${this.#elapsedSince(startedAt)}`,
+                { append: true }
               );
               this.#view.setProcessing(false);
               this.#terminateWorkers();
             }
             break;
+          }
 
           default:
             console.warn("Unknown worker event:", data.eventType);
@@ -178,7 +180,7 @@ export default class Controller {
         console.error(`Worker ${workerIndex + 1} error:`, error);
         this.#view.updateDebugLog(
           `\n❌ Worker ${workerIndex + 1} error: ${error.message}`,
-          false
+          { append: true }
         );
       };
 
@@ -194,4 +196,3 @@ export default class Controller {
     this.#activeWorkers = [];
   }
 }
-

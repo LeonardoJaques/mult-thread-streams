@@ -1,27 +1,27 @@
 export default class Service {
-  processFile({ query, file, onOcurrenceUpdate, onProgress, onDone }) {
-    const linesLength = { counter: 0 };
-    const progressFn = this.#setupProgress(file.size, onProgress);
+  processFile({ query, file, onMatchFound, onProgress, onDone }) {
+    const lineCount = { value: 0 };
+    const reportProgress = this.#setupProgress(file.size, onProgress);
     const startedAt = performance.now();
     const elapsed = () =>
       `${((performance.now() - startedAt) / 1000).toFixed(2)} secs`;
 
     const onUpdate = (found) => {
-      onOcurrenceUpdate({
+      onMatchFound({
         found,
         took: elapsed(),
-        linesLength: linesLength.counter,
+        linesLength: lineCount.value,
       });
     };
 
     file
       .stream()
       .pipeThrough(new TextDecoderStream())
-      .pipeThrough(this.#csvToJSON({ linesLength, progressFn }))
-      .pipeTo(this.#findOcurrencies({ query, onOcurrenceUpdate: onUpdate }))
+      .pipeThrough(this.#csvToJSON({ lineCount, reportProgress }))
+      .pipeTo(this.#countOccurrences({ query, onMatchFound: onUpdate }))
       .then(() => {
         if (onDone) {
-          onDone({ took: elapsed(), linesLength: linesLength.counter });
+          onDone({ took: elapsed(), linesLength: lineCount.value });
         }
       })
       .catch((err) => {
@@ -29,13 +29,22 @@ export default class Service {
       });
   }
 
-  #csvToJSON({ linesLength, progressFn }) {
+  #parseCsvLine(line, columns) {
+    const item = {};
+    const values = line.split(",");
+    for (let i = 0; i < values.length; i++) {
+      item[columns[i]] = values[i].trimEnd();
+    }
+    return item;
+  }
+
+  #csvToJSON({ lineCount, reportProgress }) {
     let columns = [];
     let remainder = "";
 
     return new TransformStream({
       transform: (chunk, controller) => {
-        progressFn(chunk.length);
+        reportProgress(chunk.length);
 
         // Prepend any leftover partial line from the previous chunk
         const text = remainder + chunk;
@@ -44,67 +53,53 @@ export default class Service {
         // The last element may be an incomplete line — save it for next chunk
         remainder = lines.pop() || "";
 
-        linesLength.counter += lines.length;
+        lineCount.value += lines.length;
 
         if (!columns.length) {
           const firstLine = lines.shift();
           columns = firstLine.split(",");
-          linesLength.counter--;
+          lineCount.value--;
         }
 
         for (const line of lines) {
           if (!line.length) continue;
-          const currentItem = {};
-          const currentColumnsItems = line.split(",");
-          for (const columnIndex in currentColumnsItems) {
-            const columnItem = currentColumnsItems[columnIndex];
-            currentItem[columns[columnIndex]] = columnItem.trimEnd();
-          }
-          controller.enqueue(currentItem);
+          controller.enqueue(this.#parseCsvLine(line, columns));
         }
       },
       flush: (controller) => {
         // Process any remaining partial line at the end of the file
         if (remainder.length) {
-          linesLength.counter++;
-          const currentItem = {};
-          const currentColumnsItems = remainder.split(",");
-          for (const columnIndex in currentColumnsItems) {
-            const columnItem = currentColumnsItems[columnIndex];
-            currentItem[columns[columnIndex]] = columnItem.trimEnd();
-          }
-          controller.enqueue(currentItem);
+          lineCount.value++;
+          controller.enqueue(this.#parseCsvLine(remainder, columns));
         }
       },
     });
   }
 
-  #findOcurrencies({ query, onOcurrenceUpdate }) {
+  #countOccurrences({ query, onMatchFound }) {
     const queryKeys = Object.keys(query);
     let found = {};
     return new WritableStream({
       write(jsonLine) {
-        for (const keyIndex in queryKeys) {
-          const key = queryKeys[keyIndex];
-          const queryValue = query[key];
-          found[queryValue] = found[queryValue] ?? 0;
-          if (queryValue.test(jsonLine[key])) {
-            found[queryValue]++;
-            onOcurrenceUpdate(found);
+        for (const key of queryKeys) {
+          const pattern = query[key];
+          found[pattern] = found[pattern] ?? 0;
+          if (pattern.test(jsonLine[key])) {
+            found[pattern]++;
+            onMatchFound(found);
           }
         }
       },
     });
   }
 
-  #setupProgress(totalBytes, onProgress) {
-    let totalUploaded = 0;
+  #setupProgress(fileSizeBytes, onProgress) {
+    let totalUploadedBytes = 0;
     onProgress(0);
     return (chunkLength) => {
-      totalUploaded += chunkLength;
-      const total = (100 / totalBytes) * totalUploaded;
-      onProgress(total);
+      totalUploadedBytes += chunkLength;
+      const percentComplete = (totalUploadedBytes / fileSizeBytes) * 100;
+      onProgress(percentComplete);
     };
   }
 }
-

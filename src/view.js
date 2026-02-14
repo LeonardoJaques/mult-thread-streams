@@ -34,12 +34,12 @@ export default class View {
     });
   }
 
-  updateDebugLog(text, reset = true) {
-    if (reset) {
-      this.#debug.innerText = text;
+  updateDebugLog(text, { append = false } = {}) {
+    if (append) {
+      this.#debug.innerText += text;
       return;
     }
-    this.#debug.innerText += text;
+    this.#debug.innerText = text;
   }
 
   updateProgress(value) {
@@ -59,5 +59,3 @@ export default class View {
     this.#btnSearch.value = isProcessing ? "Processing..." : "Search";
   }
 }
-
-

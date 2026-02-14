@@ -9,11 +9,10 @@ onmessage = ({ data }) => {
   service.processFile({
     query,
     file,
-    onOcurrenceUpdate: (args) => {
-      postMessage({ eventType: "onOcurrenceUpdate", ...args });
+    onMatchFound: (result) => {
+      postMessage({ eventType: "onMatchFound", ...result });
     },
     onProgress: (total) => postMessage({ eventType: "progress", total }),
-    onDone: (args) => postMessage({ eventType: "done", ...args }),
+    onDone: (result) => postMessage({ eventType: "done", ...result }),
   });
 };
-

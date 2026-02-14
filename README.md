@@ -333,6 +333,34 @@ A Web Workers API é suportada em **todos os browsers modernos** desde 2010. Str
 
 ---
 
+## 📖 Code Review — The Art of Readable Code
+
+O código deste projeto passou por um **code review** guiado pelo livro **["The Art of Readable Code"](https://www.oreilly.com/library/view/the-art-of/9781449318482/)** de **Dustin Boswell & Trevor Foucher** (O'Reilly).
+
+### Por que este livro?
+
+Em projetos que usam conceitos avançados como **Streams**, **Web Workers** e **message passing**, o código tende a ficar complexo rapidamente. O livro foca exatamente nisso: **tornar código complexo fácil de entender por qualquer pessoa** — não apenas por quem o escreveu.
+
+Diferente de livros que focam em arquitetura ou design patterns, *The Art of Readable Code* trata do **nível micro**: nomes de variáveis, estrutura de loops, expressões, e comentários. São melhorias pequenas que, somadas, fazem a diferença entre um código que o time **lê** e um que o time **decifra**.
+
+### Melhorias Aplicadas
+
+| # | Princípio do Livro | Antes | Depois |
+|---|---|---|---|
+| 1 | **Nomes específicos** (Cap. 2) | `#findOcurrencies` (typo + vago) | `#countOccurrences` |
+| 2 | **Evitar nomes genéricos** (Cap. 2) | `l`, `dps`, `args`, `progressFn` | `line`, `dependencies`, `result`, `reportProgress` |
+| 3 | **Nomes sem ambiguidade** (Cap. 3) | `updateDebugLog(text, reset)` | `updateDebugLog(text, { append })` |
+| 4 | **Unidades no nome** (Cap. 2) | `totalUploaded`, `totalBytes` | `totalUploadedBytes`, `fileSizeBytes` |
+| 5 | **Variáveis explicativas** (Cap. 8) | `(100 / totalBytes) * totalUploaded` | `(totalUploadedBytes / fileSizeBytes) * 100` |
+| 6 | **Extrair subproblemas** (Cap. 10) | CSV parsing duplicado em `transform`/`flush` | `#parseCsvLine()` extraído |
+| 7 | **Extrair subproblemas** (Cap. 10) | Closure `elapsed()` duplicada 2x | `#elapsedSince(startTime)` como método |
+| 8 | **Fluxo de controle** (Cap. 7) | `for...in` em arrays (antipattern) | `for` / `for...of` |
+| 9 | **Expressões gigantes** (Cap. 8) | Template string com 5 expressões inline | Variáveis `workerId`, `found` extraídas |
+
+> 💡 **Recomendação de leitura:** O livro é curto (~180 páginas), prático, e cheio de exemplos em múltiplas linguagens. Ideal para devs que querem escrever código que **outros** consigam manter.
+
+---
+
 ## 🚀 Como Rodar
 
 ```bash
