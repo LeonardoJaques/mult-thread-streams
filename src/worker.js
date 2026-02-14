@@ -13,5 +13,7 @@ onmessage = ({ data }) => {
       postMessage({ eventType: "onOcurrenceUpdate", ...args });
     },
     onProgress: (total) => postMessage({ eventType: "progress", total }),
+    onDone: (args) => postMessage({ eventType: "done", ...args }),
   });
 };
+
